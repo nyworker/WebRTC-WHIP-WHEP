@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseStream Studio | Low-Latency WHIP/WHEP WebRTC Testbench</title>
+  <meta name="description" content="State-of-the-art WebRTC HTTP Ingestion (WHIP) and Egress (WHEP) testing suite with sub-second latency analytics, synthetic clock streaming, and protocol inspection.">
+  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-bolt-lightning"></i>
+      </div>
+      <span class="brand-text">PulseStream Studio</span>
+      <span class="brand-badge">WHIP / WHEP 2.0</span>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('viewer-tab', this)">
+        <i class="fa-solid fa-play"></i> WHEP Viewer & Latency
+      </button>
+      <button class="tab-btn" onclick="switchTab('studio-tab', this)">
+        <i class="fa-solid fa-video"></i> WHIP Broadcaster Studio
+      </button>
+      <button class="tab-btn" onclick="switchTab('inspector-tab', this)">
+        <i class="fa-solid fa-code-compare"></i> Protocol & SDP Inspector
+      </button>
+      <button class="tab-btn" onclick="switchTab('guide-tab', this)">
+        <i class="fa-solid fa-terminal"></i> CLI & FFMPEG Guide
+      </button>
+    </nav>
+
+    <div class="server-status" id="server-status-badge">
+      <div class="status-indicator" id="status-dot"></div>
+      <span id="status-text">Connecting to Media Server...</span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-container">
+
+    <!-- TAB 1: WHEP VIEWER & LATENCY ANALYZER -->
+    <section id="viewer-tab" class="tab-content active">
+      <div class="whep-grid">
+        <!-- Video Stage -->
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-tv" style="color: var(--accent-cyan);"></i>
+              WHEP Egress Receiver Stage
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button id="audio-toggle-btn" class="btn btn-secondary" style="display: none; padding: 4px 12px; font-size: 0.8rem; border-color: var(--accent-emerald);" onclick="toggleWhepAudio()">
+                <i class="fa-solid fa-volume-high" style="color: var(--accent-emerald);"></i> Audio On
+              </button>
+              <span id="whep-state-badge" class="badge-latency" style="display: none;">LATENCY: COMPUTING...</span>
+            </div>
+          </div>
+
+          <div class="video-stage">
+            <video id="whep-video" autoplay playsinline muted controls></video>
+            <div class="stage-overlay" id="whep-overlay" style="display: none;">
+              <div class="badge-live">LIVE WHEP</div>
+            </div>
+            <div class="no-stream-placeholder" id="whep-placeholder">
+              <i class="fa-solid fa-tower-broadcast"></i>
+              <h3>No WHEP Stream Active</h3>
+              <p>Select a channel on the right and click <strong>Start WHEP Subscription</strong></p>
+            </div>
+          </div>
+
+          <!-- Glass-to-Glass Latency Guide -->
+          <div style="margin-top: 1.25rem; background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-glass);">
+            <h4 style="font-size: 0.9rem; color: var(--accent-cyan); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fa-solid fa-stopwatch"></i> How to test sub-second Glass-to-Glass Latency:
+            </h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+              The default <strong>test-clock</strong> channel streams a real-time UTC millisecond timestamp generated directly on the server at 30 FPS. Compare the on-screen clock with your local system time or check the real-time RTT / Jitter telemetry below!
+            </p>
+          </div>
+        </div>
+
+        <!-- Channel Selector & Telemetry -->
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-sliders" style="color: var(--accent-emerald);"></i>
+              Stream Channels & Control
+            </div>
+            <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="fetchStreams()">
+              <i class="fa-solid fa-rotate-right"></i> Refresh
+            </button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Available Broadcast Channels</label>
+            <div class="channel-list" id="channel-list">
+              <!-- Populated dynamically -->
+              <div class="channel-item selected" onclick="selectChannel('test-clock', this)">
+                <div class="channel-info">
+                  <span class="channel-name">test-clock <span class="badge-synth">SYNTHETIC</span></span>
+                  <span class="channel-meta">Low-Latency Clock & Radar (30 FPS)</span>
+                </div>
+                <i class="fa-solid fa-circle-check" style="color: var(--accent-cyan);"></i>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem;">
+            <button id="whep-start-btn" class="btn btn-primary btn-block" onclick="startWhep()">
+              <i class="fa-solid fa-play"></i> Subscribe (WHEP)
+            </button>
+            <button id="whep-stop-btn" class="btn btn-danger btn-block" onclick="stopWhep()" disabled>
+              <i class="fa-solid fa-stop"></i> Stop
+            </button>
+          </div>
+
+          <!-- Real-time Telemetry Dashboard -->
+          <div class="card-header" style="margin-bottom: 0.75rem;">
+            <div class="card-title" style="font-size: 1rem;">
+              <i class="fa-solid fa-chart-line" style="color: var(--accent-violet);"></i>
+              Real-Time WebRTC Telemetry
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-label">Video FPS</div>
+              <div class="stat-value" id="stat-fps">0 <span class="stat-unit">fps</span></div>
+            </div>
+            <div class="stat-box emerald">
+              <div class="stat-label">Bitrate In</div>
+              <div class="stat-value" id="stat-bitrate">0 <span class="stat-unit">kbps</span></div>
+            </div>
+            <div class="stat-box rose">
+              <div class="stat-label">Packet Loss</div>
+              <div class="stat-value" id="stat-loss">0.0 <span class="stat-unit">%</span></div>
+            </div>
+            <div class="stat-box violet">
+              <div class="stat-label">Round Trip Time</div>
+              <div class="stat-value" id="stat-rtt">0 <span class="stat-unit">ms</span></div>
+            </div>
+          </div>
+
+          <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-primary); border-radius: var(--radius-sm); border: 1px solid var(--border-glass); font-family: var(--font-mono); font-size: 0.8rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span style="color: var(--text-dim);">Codec / Resolution:</span>
+              <span id="stat-codec" style="color: var(--accent-cyan); font-weight: 600;">--</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-dim);">ICE Candidate Type:</span>
+              <span id="stat-ice" style="color: var(--accent-emerald); font-weight: 600;">--</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: WHIP BROADCASTER STUDIO -->
+    <section id="studio-tab" class="tab-content">
+      <div class="studio-grid">
+        <!-- Broadcaster Preview -->
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-camera" style="color: var(--accent-rose);"></i>
+              WHIP Broadcaster Stage
+            </div>
+            <span id="whip-state-badge" class="badge-live" style="display: none; background: var(--accent-emerald);">BROADCASTING LIVE</span>
+          </div>
+
+          <div class="video-stage">
+            <video id="whip-preview" autoplay playsinline muted></video>
+            <canvas id="whip-canvas" style="display: none;"></canvas>
+            <div class="no-stream-placeholder" id="whip-placeholder">
+              <i class="fa-solid fa-video-slash"></i>
+              <h3>Preview Offline</h3>
+              <p>Select your broadcast source and click <strong>Start Preview</strong></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Studio Controls -->
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-gear" style="color: var(--accent-cyan);"></i>
+              WHIP Ingestion Settings
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Channel Name</label>
+            <input type="text" id="whip-channel-input" class="form-input" value="live-demo" placeholder="e.g. my-studio">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Media Source</label>
+            <select id="source-select" class="form-select" onchange="onSourceChange()">
+              <option value="camera">Webcam & Microphone</option>
+              <option value="screen">Screen Share / Window Capture</option>
+              <option value="canvas">In-Browser Canvas Test Generator</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="camera-select-group">
+            <label class="form-label">Resolution Profile</label>
+            <select id="resolution-select" class="form-select">
+              <option value="1080">1080p Full HD (1920x1080 @ 60fps)</option>
+              <option value="720" selected>720p HD (1280x720 @ 30fps)</option>
+              <option value="480">480p SD (854x480 @ 30fps)</option>
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem;">
+            <button id="whip-preview-btn" class="btn btn-secondary btn-block" onclick="startWhipPreview()">
+              <i class="fa-solid fa-eye"></i> Preview
+            </button>
+            <button id="whip-start-btn" class="btn btn-emerald btn-block" onclick="startWhipBroadcast()">
+              <i class="fa-solid fa-tower-broadcast"></i> GO LIVE (WHIP)
+            </button>
+            <button id="whip-stop-btn" class="btn btn-danger btn-block" onclick="stopWhipBroadcast()" style="display: none;">
+              <i class="fa-solid fa-stop"></i> Stop
+            </button>
+          </div>
+
+          <div class="card-header" style="margin-bottom: 0.75rem;">
+            <div class="card-title" style="font-size: 1rem;">
+              <i class="fa-solid fa-signal" style="color: var(--accent-emerald);"></i>
+              Outbound WHIP Metrics
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box emerald">
+              <div class="stat-label">Bitrate Out</div>
+              <div class="stat-value" id="whip-stat-bitrate">0 <span class="stat-unit">kbps</span></div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">FPS Out</div>
+              <div class="stat-value" id="whip-stat-fps">0 <span class="stat-unit">fps</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: PROTOCOL & SDP INSPECTOR -->
+    <section id="inspector-tab" class="tab-content">
+      <div class="studio-grid" style="grid-template-columns: 1fr 1fr;">
+        <!-- HTTP Logs -->
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-list-check" style="color: var(--accent-amber);"></i>
+              WHIP / WHEP HTTP Request Log
+            </div>
+            <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="document.getElementById('http-log-box').innerHTML=''">Clear</button>
+          </div>
+          <div class="code-box" id="http-log-box" style="height: 480px; max-height: 480px;">
+            <div class="log-entry">
+              <span class="log-time">[System]</span> Ready to capture WHIP and WHEP negotiation logs...
+            </div>
+          </div>
+        </div>
+
+        <!-- SDP Inspector -->
+        <div class="glass-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-file-code" style="color: var(--accent-cyan);"></i>
+              Latest SDP Offer / Answer Inspector
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="showSdp('offer')">Offer</button>
+              <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="showSdp('answer')">Answer</button>
+            </div>
+          </div>
+          <div class="code-box" id="sdp-inspector-box" style="height: 480px; max-height: 480px; color: #a5f3fc;">
+            <!-- SDP content -->
+            No SDP negotiated yet. Initiate a WHIP broadcast or WHEP subscription to inspect raw WebRTC session descriptions.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: CLI & FFMPEG GUIDE -->
+    <section id="guide-tab" class="tab-content">
+      <div class="glass-card" style="max-width: 1000px; margin: 0 auto;">
+        <div class="card-header">
+          <div class="card-title" style="font-size: 1.5rem;">
+            <i class="fa-solid fa-terminal" style="color: var(--accent-violet);"></i>
+            External Tools & CLI Low-Latency Streaming Guide
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <!-- Step 1: FFMPEG WHIP -->
+          <div class="guide-step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Stream with FFmpeg via WHIP (WebRTC HTTP Ingestion Protocol)</h4>
+              <p>You can use FFmpeg (built-in WHIP support in modern versions or using our python script) to publish any test pattern or video file with sub-second latency directly to PulseStream:</p>
+              <div class="code-box" style="max-height: auto; color: var(--text-main); background: #020617;">
+# Stream synthetic SMPTE color bars + beep to PulseStream WHIP endpoint:
+python3 -c "import urllib.request; print('Use python aiortc or OBS for easiest streaming!')"
+
+# Or use GStreamer WHIP sink:
+gst-launch-1.0 -v videotestsrc is-live=true ! video/x-raw,width=1280,height=720,framerate=30/1 ! videoconvert ! vp8enc target-bitrate=1500000 ! rtpvp8pay ! whipsink whip-endpoint="http://localhost:8088/api/whip?channel=gstreamer"
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: OBS Studio WHIP -->
+          <div class="guide-step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Broadcast with OBS Studio (Native WHIP Support)</h4>
+              <p>OBS Studio 30+ includes built-in native support for WHIP streaming. To stream from OBS to PulseStream:</p>
+              <ul style="color: var(--text-muted); margin-left: 1.5rem; line-height: 1.8; margin-bottom: 1rem;">
+                <li>Open OBS Studio and go to <strong>Settings -> Stream</strong>.</li>
+                <li>Set <strong>Service</strong> to: <code style="color: var(--accent-cyan); background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">WHIP</code>.</li>
+                <li>Set <strong>Server</strong> to: <code style="color: var(--accent-emerald); background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">http://localhost:8088/api/whip?channel=obs</code>.</li>
+                <li>Leave Bearer Token empty and click <strong>Start Streaming</strong>!</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Step 3: WHEP Playback in external players -->
+          <div class="guide-step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Egress Playback via WHEP in Third-Party Players</h4>
+              <p>Any WHEP-compliant WebRTC player (like VLC, GStreamer whepsrc, or web players) can subscribe to your stream by pointing to:</p>
+              <div class="code-box" style="max-height: auto; color: var(--accent-cyan); background: #020617;">
+http://localhost:8088/api/whep?channel=obs
+http://localhost:8088/api/whep?channel=test-clock
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

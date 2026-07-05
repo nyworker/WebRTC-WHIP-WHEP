@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  # 1. PulseStream Python Native AIORTC WHIP/WHEP Server
+  pulsestream-python:
+    build: .
+    image: pulsestream-server:latest
+    container_name: pulsestream-python
+    network_mode: "host"
+    environment:
+      - PORT=8088
+    restart: unless-stopped
+
+  # 2. MediaMTX (RTSP/WebRTC/WHIP/WHEP/RTMP production media server for comparison)
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx-sfu
+    network_mode: "host"
+    environment:
+      - MTX_WEBRTCADDITIONALHOSTS=127.0.0.1
+    restart: unless-stopped
