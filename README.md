@@ -1,6 +1,8 @@
 # PulseStream Studio ⚡
 **The Ultimate Low-Latency WHIP / WHEP WebRTC Testbench & Media Suite**
 
+ONLY WORKS: 1280x720 and 2Mbps
+
 PulseStream Studio is a state-of-the-art WebRTC application and server built to test, analyze, and benchmark sub-second low-latency video and audio streaming using modern **IETF WHIP (WebRTC HTTP Ingestion Protocol)** and **WHEP (WebRTC HTTP Egress Protocol)** standards.
 
 ---
