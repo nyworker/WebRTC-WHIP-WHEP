@@ -4,8 +4,9 @@
 ONLY WORKS: 1280x720 and 2Mbps
 
 ** Better to use mediamtx:
-  ● [21:37:39] ffmpeg -stream_loop -1 -re -i /home/steve/Downloads/sync.mp4 -vf "drawtext=text='%{localtime}':x=10:y=10:fontsize=48:fontcolor=white:box... 
-  ● [21:08:44] ./mediamtx 
+* ffmpeg -stream_loop -1 -re -i /home/steve/Downloads/sync.mp4 -vf drawtext=text='%{localtime}':x=10:y=10:fontsize=48:fontcolor=white:box=1:boxcolor=black@0.5 -c:v libx264 -preset ultrafast -c:a libopus -f rtsp rtsp://localhost:8554/ffmpeg
+* ./mediamtx
+* play: ffmpeg -rtsp_transport tcp -i ...
 
 
 PulseStream Studio is a state-of-the-art WebRTC application and server built to test, analyze, and benchmark sub-second low-latency video and audio streaming using modern **IETF WHIP (WebRTC HTTP Ingestion Protocol)** and **WHEP (WebRTC HTTP Egress Protocol)** standards.
